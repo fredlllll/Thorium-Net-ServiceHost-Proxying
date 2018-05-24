@@ -5,6 +5,7 @@ using System.Reflection.Emit;
 using System.Text;
 using System.CodeDom.Compiler;
 using Newtonsoft.Json.Linq;
+using System.Linq;
 
 namespace Thorium.Net.ServiceHost.Proxying
 {
@@ -48,7 +49,7 @@ namespace Thorium.Net.ServiceHost.Proxying
             source.AppendLine("using Thorium.Net.ServiceHost.Proxying;");
             source.AppendLine("using Thorium.Net.ServiceHost;");
             source.AppendLine("using Newtonsoft.Json.Linq;");
-            source.AppendLine("public class " + className + " : ProxyBaseClass {");
+            source.AppendLine("public class " + className + " : ProxyBaseClass, " + targetType.FullName + " {");
 
             //constructor
             source.AppendLine("public " + className + "(IServiceInvoker invoker):base(invoker){}");
@@ -65,7 +66,7 @@ namespace Thorium.Net.ServiceHost.Proxying
 
             source.AppendLine("}");
 
-            return CompileProxyType(className, source.ToString());
+            return CompileProxyType(className, source.ToString(), targetType.Assembly);
         }
 
         static string GetMethodParameterList(MethodInfo method)
@@ -90,7 +91,7 @@ namespace Thorium.Net.ServiceHost.Proxying
             return string.Join(",", parameterStrings);
         }
 
-        static Type CompileProxyType(string typeName, string source)
+        static Type CompileProxyType(string typeName, string source, params Assembly[] references)
         {
             var provider = CodeDomProvider.CreateProvider("c#");
             var options = new CompilerParameters();
@@ -98,7 +99,7 @@ namespace Thorium.Net.ServiceHost.Proxying
                 typeof(ProxyBaseClass).Assembly.Location, //thorium.net.ServiceHost.Proxying
                 typeof(IServiceInvoker).Assembly.Location, //thorium.net
                 typeof(JToken).Assembly.Location, // newtonsoft.json
-            });
+            }.Concat(references.Select(x => x.Location)).ToArray());
 
             var results = provider.CompileAssemblyFromSource(options, source);
 

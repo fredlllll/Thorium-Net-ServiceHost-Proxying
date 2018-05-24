@@ -3,7 +3,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Thorium.Net.ServiceHost.Proxying
 {
-    abstract class ProxyBaseClass
+    public abstract class ProxyBaseClass
     {
         private readonly IServiceInvoker invoker;
 
