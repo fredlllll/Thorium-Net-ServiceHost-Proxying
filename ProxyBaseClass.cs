@@ -5,9 +5,9 @@ namespace Thorium.Net.ServiceHost.Proxying
 {
     public abstract class ProxyBaseClass
     {
-        private readonly IServiceInvoker invoker;
+        private readonly IInvoker invoker;
 
-        protected ProxyBaseClass(IServiceInvoker invoker)
+        protected ProxyBaseClass(IInvoker invoker)
         {
             this.invoker = invoker;
         }
