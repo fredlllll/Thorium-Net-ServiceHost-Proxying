@@ -5,7 +5,6 @@ using System.Reflection.Emit;
 using System.Text;
 using System.CodeDom.Compiler;
 using Newtonsoft.Json.Linq;
-using System.Linq;
 
 namespace Thorium.Net.ServiceHost.Proxying
 {
@@ -23,7 +22,7 @@ namespace Thorium.Net.ServiceHost.Proxying
             moduleBuilder = assemblyBuilder.DefineDynamicModule(assemblyName.Name);
         }
 
-        public static T CreateInstance<T>(IServiceInvoker invoker)
+        public static T CreateInstance<T>(IInvoker invoker)
         {
             if(!proxyTypes.TryGetValue(typeof(T), out Type proxyType))
             {
@@ -46,13 +45,13 @@ namespace Thorium.Net.ServiceHost.Proxying
             MethodInfo[] methods = targetType.GetMethods();
 
             StringBuilder source = new StringBuilder();
-            source.AppendLine("using Thorium.Net.ServiceHost.Proxying;");
-            source.AppendLine("using Thorium.Net.ServiceHost;");
-            source.AppendLine("using Newtonsoft.Json.Linq;");
-            source.AppendLine("public class " + className + " : ProxyBaseClass, " + targetType.FullName + " {");
+            source.AppendLine("using " + typeof(ProxyBaseClass).Namespace + ";");
+            source.AppendLine("using " + typeof(IInvoker).Namespace + ";");
+            source.AppendLine("using " + typeof(JToken).Namespace + ";");
+            source.AppendLine("public class " + className + " : " + nameof(ProxyBaseClass) + ", " + targetType.FullName + " {");
 
             //constructor
-            source.AppendLine("public " + className + "(IServiceInvoker invoker):base(invoker){}");
+            source.AppendLine("public " + className + "(" + nameof(IInvoker) + " invoker):base(invoker){}");
 
             foreach(var method in methods)
             {
@@ -91,15 +90,45 @@ namespace Thorium.Net.ServiceHost.Proxying
             return string.Join(",", parameterStrings);
         }
 
+        /// <summary>
+        /// gets all references iteratively. reason being errors like "the type yadda is in a non referenced assembly blubba" that happen cause its used somewhere down the line
+        /// </summary>
+        /// <param name="assembly"></param>
+        /// <returns></returns>
+        static string[] GetAssemblyReferences(Assembly assembly)
+        {
+            List<string> locations = new List<string>();
+            Stack<Assembly> assemblies = new Stack<Assembly>();
+            assemblies.Push(assembly);
+            while(assemblies.Count > 0)
+            {
+                var ass = assemblies.Pop();
+                if(!locations.Contains(ass.Location)) //dont add stuff twice
+                {
+                    locations.Add(ass.Location);
+                    var refs = ass.GetReferencedAssemblies();
+                    foreach(var refass in refs)
+                    {
+                        assemblies.Push(Assembly.ReflectionOnlyLoad(refass.FullName));
+                    }
+                }
+            }
+            return locations.ToArray();
+        }
+
         static Type CompileProxyType(string typeName, string source, params Assembly[] references)
         {
             var provider = CodeDomProvider.CreateProvider("c#");
             var options = new CompilerParameters();
             options.ReferencedAssemblies.AddRange(new string[] {
                 typeof(ProxyBaseClass).Assembly.Location, //thorium.net.ServiceHost.Proxying
-                typeof(IServiceInvoker).Assembly.Location, //thorium.net
+                typeof(IInvoker).Assembly.Location, //thorium.net
                 typeof(JToken).Assembly.Location, // newtonsoft.json
-            }.Concat(references.Select(x => x.Location)).ToArray());
+            });
+            foreach(var reference in references)
+            {
+                options.ReferencedAssemblies.AddRange(GetAssemblyReferences(reference));
+            }
 
             var results = provider.CompileAssemblyFromSource(options, source);
 
