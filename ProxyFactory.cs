@@ -17,8 +17,7 @@ namespace Thorium.Net.ServiceHost.Proxying
         static ProxyFactory()
         {
             var assemblyName = new AssemblyName("ServiceInvokerAssembly");
-            var appDomain = AppDomain.CurrentDomain;
-            var assemblyBuilder = appDomain.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
+            var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Run);
             moduleBuilder = assemblyBuilder.DefineDynamicModule(assemblyName.Name);
         }
 
